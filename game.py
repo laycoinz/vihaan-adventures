@@ -652,18 +652,27 @@ def render_knight(w, h, facing, walk_t, hp=2, flash=False, state="walk"):
     return s
 
 
-def render_necromancer(w, h, facing, walk_t, hp=2, flash=False):
+def render_necromancer(w, h, facing, walk_t, hp=2, flash=False, cloud=False):
     s = pygame.Surface((w, h), pygame.SRCALPHA)
-    robe = (44, 44, 44)
-    robe_d = (22, 22, 22)
-    trim = (150, 150, 150)
-    face = (8, 8, 8)
-    eye = (240, 240, 240)
-    if hp <= 1:
-        robe = (74, 74, 74)
+    if cloud:
+        robe = (238, 244, 252)
+        robe_d = (176, 198, 224)
+        trim = (150, 178, 210)
+        face = (86, 116, 156)
+        eye = (255, 255, 255)
+        if hp <= 1:
+            robe = (206, 220, 236)
+    else:
+        robe = (44, 44, 44)
+        robe_d = (22, 22, 22)
+        trim = (150, 150, 150)
+        face = (8, 8, 8)
+        eye = (240, 240, 240)
+        if hp <= 1:
+            robe = (74, 74, 74)
     if flash:
-        robe = (232, 232, 232)
-        robe_d = (180, 180, 180)
+        robe = (255, 255, 255)
+        robe_d = (210, 210, 210)
     cx = w // 2
     sway = math.sin(walk_t * 0.2) * 1.5
     top = int(h * 0.30) + int(sway)
@@ -1717,7 +1726,8 @@ class Necromancer:
                         Projectile(bx, by, dx / dist * 5.0, dy / dist * 5.0 + off * 4, "dark"))
                 game.sounds.play("bump")
             else:
-                s = Slime(int(self.rect().centerx // TILE) + random.choice((-1, 1)) * random.randint(1, 3), 12)
+                s = Slime(int(self.rect().centerx // TILE) + random.choice((-1, 1)) * random.randint(1, 3),
+                          12, cloud=self.cloud)
                 level.enemies.append(s)
         # drift to keep ~3 tiles away
         if player is not None:
@@ -1733,7 +1743,7 @@ class Necromancer:
 
     def render(self):
         return render_necromancer(self.w, self.h, self.facing, self.walk,
-                                  self.hp, self.flash > 0)
+                                  self.hp, self.flash > 0, self.cloud)
 
 
 class Projectile:
@@ -2576,6 +2586,15 @@ class Level:
                 elif c == "Z":
                     self.enemies.append(IceZombie(x, y))
                     self.grid[y][x] = " "
+                elif c == "G":
+                    self.enemies.append(Enemy(x, y, variant="green"))
+                    self.grid[y][x] = " "
+                elif c == "y":
+                    self.enemies.append(Bat(x, y, variant="sky"))
+                    self.grid[y][x] = " "
+                elif c == "Q":
+                    self.enemies.append(Necromancer(x, y, cloud=True))
+                    self.grid[y][x] = " "
                 elif c == "K":
                     self.enemies.append(Knight(x, y))
                     self.grid[y][x] = " "
@@ -3010,13 +3029,62 @@ def build_level_6():
             "boss": {"kind": "bob", "tx": 198, "ty": 12, "left": 190, "right": 206}}
 
 
+CLOUD_LEVEL_NAMES = [
+    "W2-1  Cumulus Cove",
+    "W2-2  Nimbus Heights",
+    "W2-3  Stratus Steps",
+    "W2-4  Cirrus Cliffs",
+    "W2-5  The Thunderhead",
+]
+
+
+def build_cloud_level(n):
+    w = 168 + n * 12
+    g = _blank(w)
+    segs = [(0, 30), (34, 70), (74, 110), (114, 150), (154, w)]
+    for (a, b) in segs:
+        _ground(g, a, b)
+    g[12][3] = "P"
+
+    _row(g, 8, 12, 9, "?")
+    g[9][11] = "M"
+    _coins(g, 8, 12, 7)
+    g[12][22] = "G"           # green grump
+    g[7][26] = "y"            # sky bat
+
+    _row(g, 44, 50, 9, "=")
+    _coins(g, 44, 50, 8)
+    g[12][62] = "G"
+    g[7][58] = "y"
+
+    g[12][84] = "Q"           # cloud necromancer
+    _row(g, 84, 92, 8, "=")
+    g[9][90] = "R"
+    g[7][96] = "y"
+
+    _row(g, 126, 134, 9, "=")
+    _coins(g, 126, 134, 8)
+    g[12][124] = "G"
+    g[6][130] = "y"
+    g[9][140] = "?"
+
+    _coins(g, 156, 166, 11)
+
+    g[12][40] = "C"
+    g[12][120] = "C"
+    g[12][w - 6] = "F"        # goal flag
+    return {"name": CLOUD_LEVEL_NAMES[n - 1], "theme": 6, "w": w, "h": GRID_H, "grid": g}
+
+
 class Game:
     def __init__(self, screen, audio):
         self.screen = screen
         self.sounds = SoundBank(audio)
         self.fonts = {}
         self.levels = [build_level_1(), build_level_2(), build_level_3(),
-                       build_level_4(), build_level_5(), build_level_6()]
+                       build_level_4(), build_level_5(), build_level_6(),
+                       build_cloud_level(1), build_cloud_level(2), build_cloud_level(3),
+                       build_cloud_level(4), build_cloud_level(5)]
         self.state = "title"
         self.level_index = 0
         self.level = None
@@ -3335,6 +3403,14 @@ class Game:
                     self.add_score(200, er.centerx, er.top, (200, 255, 220))
                     self.add_sparks(er.centerx, er.top, (180, 255, 210))
                     self.sounds.play("stomp")
+                elif isinstance(e, Bat) and e.variant == "sky":
+                    away = 1 if pr.centerx >= er.centerx else -1
+                    p.xs = 24 * away
+                    p.facing = away
+                    p.vx = p.xs * SMB_SCALE / 16.0
+                    p.on_ground = False
+                    self.add_sparks(er.centerx, er.centery, (220, 235, 255))
+                    self.sounds.play("bump")
                 else:
                     p.hurt(self.sounds)
 

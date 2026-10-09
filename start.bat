@@ -4,9 +4,12 @@ cd /d "%~dp0"
 
 if not exist ".venv\Scripts\python.exe" (
     echo Virtual environment not found. Setting it up now...
-    python -m venv .venv
+    set "PYCMD=python"
+    where python >nul 2>nul || set "PYCMD=py -3"
+    %PYCMD% -m venv .venv
     if errorlevel 1 (
-        echo Failed to create the virtual environment. Is Python installed?
+        echo Failed to create the virtual environment. Is Python installed and on PATH?
+        echo Try installing Python 3.11+ from https://www.python.org/downloads/
         pause
         exit /b 1
     )
